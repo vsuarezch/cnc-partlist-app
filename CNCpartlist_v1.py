@@ -5,9 +5,9 @@ import shutil
 import zipfile
 from CNCpack2 import cnc_partlist
 
-st.title("🛠 STEELCORP USA CNC Partlist Processor")
-st.title("by: V.Suarez ")
-
+st.title("STEELCORP USA")
+st.title("🛠 CNC Partlist Processor")
+st.markdown("by: V.Suarez")
 
 # User input: Job code
 job_code = st.text_input("Job Code").strip().upper()
