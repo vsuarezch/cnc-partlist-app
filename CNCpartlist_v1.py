@@ -1,76 +1,76 @@
 import streamlit as st
-import pandas as pd
 import os
 import csv
+import shutil
+import zipfile
 from CNCpack2 import cnc_partlist
 
-# Constants
-HISTORY_FILE = "execution_history.csv"
+st.title("🛠 STEELCORP USA CNC Partlist Processor")
+st.title("by: V.Suarez ")
 
-def save_execution_history(job_code, partlist_file):
-    """Save the input values to a CSV file."""
-    with open(HISTORY_FILE, mode="w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["job_code", "partlist_file"])
-        writer.writerow([job_code, partlist_file])
 
-def load_last_execution():
-    """Load the last saved input values from the CSV file."""
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, mode="r") as file:
-            reader = csv.reader(file)
-            next(reader, None)  # Skip header
-            try:
-                return next(reader)
-            except StopIteration:
-                return None
-    return None
+# User input: Job code
+job_code = st.text_input("Job Code").strip().upper()
 
-# Streamlit UI
-st.title("🛠 CNC Partlist Processor")
-
-# Load last execution values (if any)
-last_execution = load_last_execution()
-default_job_code = last_execution[0] if last_execution else ""
-default_partlist_path = last_execution[1] if last_execution else None
-
-# Job code input
-job_code = st.text_input("Job Code", value=default_job_code).strip().upper()
-
-# File uploader
+# User input: Partlist CSV
 uploaded_file = st.file_uploader("Upload Partlist CSV", type=["csv"])
 
-# If using default from last session
-use_last_file = st.checkbox("Use last uploaded file", value=not uploaded_file and default_partlist_path is not None)
+# Output directory
+OUTPUT_DIR = "cnc_output"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Execute
 if st.button("Run CNC Processing"):
     if not job_code:
-        st.error("Please enter a job code.")
-    elif not uploaded_file and not use_last_file:
-        st.error("Please upload a partlist CSV or check 'Use last uploaded file'.")
+        st.error("❌ Please enter a Job Code.")
+    elif not uploaded_file:
+        st.error("❌ Please upload a Partlist CSV.")
     else:
         try:
-            # Determine which file to use
-            if use_last_file:
-                partlist_file_path = default_partlist_path
-                if not os.path.exists(partlist_file_path):
-                    st.error(f"Last used file not found: {partlist_file_path}")
-                    st.stop()
+            # Save uploaded file to temporary path
+            partlist_path = os.path.join(OUTPUT_DIR, "partlist.csv")
+            with open(partlist_path, "wb") as f:
+                f.write(uploaded_file.read())
+
+            # Run processing
+            cnc_partlist(job_code, partlist_path)
+
+            # Gather output files
+            output_files = [
+                os.path.join(OUTPUT_DIR, fname)
+                for fname in os.listdir(OUTPUT_DIR)
+                if fname.endswith(".Parts List") or fname == "skippedparts.csv"
+            ]
+
+            if output_files:
+                st.success("✅ Processing completed. Download your files below:")
+
+                # Optionally zip all results
+                zip_path = os.path.join(OUTPUT_DIR, f"{job_code}_cnc_results.zip")
+                with zipfile.ZipFile(zip_path, 'w') as zipf:
+                    for file in output_files:
+                        zipf.write(file, arcname=os.path.basename(file))
+
+                # Download all as ZIP
+                with open(zip_path, "rb") as zip_file:
+                    st.download_button(
+                        label="📦 Download All CNC Files (.zip)",
+                        data=zip_file,
+                        file_name=os.path.basename(zip_path),
+                        mime="application/zip"
+                    )
+
+                # Or download each file individually
+                for file_path in output_files:
+                    with open(file_path, "rb") as f:
+                        st.download_button(
+                            label=f"⬇ Download {os.path.basename(file_path)}",
+                            data=f,
+                            file_name=os.path.basename(file_path),
+                            mime="text/plain"
+                        )
             else:
-                # Save uploaded file to a temporary location
-                temp_path = os.path.join("temp_partlist.csv")
-                with open(temp_path, "wb") as f:
-                    f.write(uploaded_file.read())
-                partlist_file_path = temp_path
+                st.warning("⚠️ No CNC output files were generated.")
 
-            # Run your logic
-            cnc_partlist(job_code, partlist_file_path)
-
-            # Save to history
-            save_execution_history(job_code, partlist_file_path)
-
-            st.success("✅ CNC Partlist processed successfully.")
         except Exception as e:
-            st.error(f"❌ Error: {e}")
+            st.error(f"❌ Error during processing: {e}")
 
