@@ -129,7 +129,7 @@ def cnc_partlist(job_code,partlist_file):
         cnc_filename = os.path.join(cnc_path, f"{job_code}_{pack}_{profile}.Parts List")
         thickness = profile.split("-")[1][:2]
         
-        with open(cnc_filename, 'w') as file:
+        with open(cnc_filename, 'w', newline="\r\n", encoding="utf-8") as file:
             file.write("1\n")
             file.write(f"N/{profile}/{thickness}\n")
             
@@ -200,4 +200,5 @@ def cnc_partlist(job_code,partlist_file):
 # job_code = "SC321"
 # partlist_file ='I:/Shared drives/STALO ENGINEERING/STEELCORP SC321 - MODULAR DESIGN/06 STALO TRUSS/04 CNC/G3/PARTLIST FLOOR SC321 - @16.csv'
 # cnc_partlist(job_code, partlist_file)
+
     
